@@ -157,6 +157,11 @@ a{color:inherit}
 .hyp{margin:0 0 12px;padding:8px 10px;border-left:4px solid var(--partner);background:var(--partner-bg);font-size:14px}
 
 /* панель для перевіряючого */
+.zone{margin:0 0 10px;font:600 15px/1.2 var(--display);color:var(--muted);display:flex;align-items:center;gap:10px}
+.zone::after{content:"";flex:1;height:1px;background:var(--line)}
+.pm{background:#E3E8F0;border:1px solid var(--line);border-radius:var(--r-lg);padding:20px 16px 4px}
+.pm .zone::after{background:#B7C1D0}
+@media (max-width:900px){.pm{margin-top:8px}}
 .pm h2{font:600 28px/1.05 var(--display);margin:0 0 4px}
 .pm > p{margin:0 0 16px;color:var(--muted);max-width:62ch}
 .controls{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
@@ -209,6 +214,7 @@ tr.ext td{color:var(--muted);font-size:13px}
 
   <!-- Як бачить читач -->
   <section aria-label="Як бачить читач">
+    <p class="zone">Сторінка сайту: так бачить читач</p>
     <div class="host">
       <div class="host-top"><b>SportMedia</b><span>Футбол / Ліга 1 / Превʼю</span></div>
       <div class="article">
@@ -290,9 +296,10 @@ tr.ext td{color:var(--muted);font-size:13px}
   </section>
 
   <!-- Що бачить перевіряючий -->
-  <section class="pm" aria-label="Метрики прототипу">
-    <h2>Для тих, хто перевіряє</h2>
-    <p>Читач сайту цієї панелі не бачить. Тут видно, що рахується, коли ви натискаєте у віджеті.</p>
+  <section class="pm" aria-label="Аналітика віджета">
+    <p class="zone">Внутрішня панель: читач її не бачить</p>
+    <h2>Аналітика віджета</h2>
+    <p>Натискайте у віджеті, і тут видно, що рахується після кожної дії.</p>
 
     <div class="controls">
       <label>Варіант пропозиції
@@ -334,7 +341,7 @@ tr.ext td{color:var(--muted);font-size:13px}
   </section>
 </main>
 
-<div class="dock" id="dock" aria-label="Коротко для перевіряючого">
+<div class="dock" id="dock" aria-label="Коротко з аналітики">
   <span>Турів з прогнозом <b id="d-pick">0</b></span><span>з переходом <b id="d-click">0</b></span>
   <span class="last" id="d-last"></span>
   <button id="weekDock">Зіграти матчі</button>
@@ -529,6 +536,14 @@ tr.ext td{color:var(--muted);font-size:13px}
     s.picks[e.id] = k; counted();
     log(changed ? 'prediction_changed' : 'prediction_made', `${evName(e)}: ${label(k)}, ${roundKey()}`);
     renderAll();
+    showOffer();
+  }
+  // Після прогнозу прокручуємо до купона (або до повідомлення про паузу), щоб перехід було видно одразу.
+  function showOffer(){
+    const t = ['offer', 'paused'].map($).find(x => x && !x.classList.contains('hidden'));
+    if (!t) return;
+    const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    requestAnimationFrame(() => t.scrollIntoView({ block: t.offsetHeight > innerHeight * 0.8 ? 'start' : 'center', behavior: calm ? 'auto' : 'smooth' }));
   }
   function go(dir){
     const n = R().events.length;
