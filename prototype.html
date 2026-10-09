@@ -100,7 +100,6 @@ a{color:inherit}
 .bar-legend span:nth-child(2){text-align:center}
 .bar-legend span:last-child{text-align:right}
 .crowd p{margin:8px 0 0;font-size:14px}
-.vs{margin-top:8px;padding:8px 10px;border-left:4px solid var(--ink);background:var(--paper);font-size:14px}
 
 .result{margin:0 14px 12px;padding:12px;border-radius:var(--r-sm);font-size:15px;background:var(--paper)}
 .result.win{background:#E3F2E9;color:#124A2E}
@@ -270,7 +269,6 @@ tr.ext td{color:var(--muted);font-size:13px}
           <div id="offerA">
             <div class="offer-row"><b id="offerPick"></b><span class="odd" id="offerOdd"></span></div>
             <div class="note" id="offerNote"></div>
-            <div class="vs" id="vs"></div>
             <button class="cta" id="ctaA" style="margin-top:10px">Відкрити купон з цим прогнозом</button>
           </div>
           <div id="offerB" class="hidden">
@@ -314,7 +312,7 @@ tr.ext td{color:var(--muted);font-size:13px}
       <h3>Воронка по турах</h3>
       <p class="why">Навіщо: скільки читачів доходить від віджета до букмекера.</p>
       <p class="hyp">Що перевіряємо: чи купон з уже вибраним прогнозом і коефіцієнтом дає більше переходів до партнера, ніж звичайне посилання в тому самому місці, і чи не стає при цьому менше прогнозів.</p>
-      <p>Одиниця: читач у турі, повторні дії в тому ж турі не рахуються. Відсоток від попереднього кроку. Перемкнули варіант: читач у цьому турі переходить в інший варіант.</p>
+      <p>Одиниця: читач у турі, повторні дії в тому ж турі не рахуються. Відсоток від попереднього кроку. Перемкнули варіант: зроблене лишається у старому варіанті, далі читач рахується в новому.</p>
       <table>
         <thead><tr><th>Крок</th><th>A</th><th>B</th></tr></thead>
         <tbody id="funnel"></tbody>
@@ -408,7 +406,9 @@ tr.ext td{color:var(--muted);font-size:13px}
   const label = (k, e = E()) => k==='X' ? 'Нічия' : 'Перемога ' + gen(k==='1' ? e.home : e.away);
   const roundKey = () => 'тур ' + R().n + (s.r >= ROUNDS.length ? ' (повтор ' + (s.r - ROUNDS.length + 1) + ')' : '');
   const anyPick = () => Object.keys(s.picks).length > 0;
-  const LEADERS = [ ['Марта_Львів', 64], ['dynamo_fan', 61], ['Олександр К.', 59], ['Bogdan92', 58], ['Ірина П.', 56] ];
+  // Очки лідерів після 5-го туру; далі в середньому +6 за тур. Максимум за тур 12 (4 матчі по 3 бали).
+  const LEADERS = [ ['Марта_Львів', 47], ['dynamo_fan', 45], ['Олександр К.', 44], ['Bogdan92', 42], ['Ірина П.', 41] ];
+  const roundsDone = () => s.settled ? R().n : R().n - 1;
   const place = () => Math.max(LEADERS.length + 1, Math.round(10000 * Math.exp(-s.points / 8)));
   const TOP100 = Math.ceil(8 * Math.log(10000 / 100));
 
@@ -459,11 +459,6 @@ tr.ext td{color:var(--muted);font-size:13px}
     $('askNote').textContent = s.settled ? 'матч завершено' : 'можна змінити до початку';
     $('hint').classList.toggle('hidden', !!mine || s.settled);
   }
-  function implied(e){
-    const inv = { '1':1/e.odds['1'], 'X':1/e.odds['X'], '2':1/e.odds['2'] };
-    const sum = inv['1'] + inv['X'] + inv['2'];
-    return k => Math.round(inv[k] / sum * 100);
-  }
   function renderCrowd(){
     const e = E(), k = s.picks[e.id];
     $('crowd').classList.toggle('hidden', !k);
@@ -485,21 +480,21 @@ tr.ext td{color:var(--muted);font-size:13px}
     $('offer').classList.toggle('hidden', !show);
     const pausedNote = s.paused && !!k && !s.settled;
     $('paused').classList.toggle('hidden', !pausedNote);
-    if (pausedNote) $('paused').textContent = 'Пропозиції партнера вимкнено на 7 днів. Змінити можна в налаштуваннях профілю.';
+    if (pausedNote) $('paused').textContent = 'Пропозиції партнера вимкнено на 7 днів. Прогнози, бали і таблиця працюють як завжди.';
     if (!show) return;
     $('offerA').classList.toggle('hidden', s.variant !== 'A');
     $('offerB').classList.toggle('hidden', s.variant !== 'B');
     $('offerPick').textContent = `${label(k)} (${evName(e)})`;
     $('offerOdd').textContent = fmt(e.odds[k]);
     $('offerNote').textContent = `Коефіцієнт партнера на ${e.oddsTime}, на сайті може змінитися.`;
-    $('vs').textContent = `Читачі дають варіанту «${label(k)}» ${e.crowd[k]}%, а ймовірність за коефіцієнтом партнера ${implied(e)(k)}% (без маржі).`;
     const key = `${roundKey()}/${e.id}/${s.variant}`;
     if (!s.offerLogged.has(key)) { s.offerLogged.add(key); mark('offer'); log('offer_shown', `варіант ${s.variant}, ${evName(e)}, ${roundKey()}`); }
   }
   function renderBoard(){
     const me = place();
-    $('lbRound').textContent = `після ${s.settled ? R().n : R().n - 1}-го туру`;
-    $('lbList').innerHTML = LEADERS.map((l, i) => `<li><span class="pl">${i+1}</span><span>${l[0]}</span><span class="pt">${l[1]}</span></li>`).join('')
+    const add = 6 * Math.max(0, roundsDone() - 5);
+    $('lbRound').textContent = `після ${roundsDone()}-го туру`;
+    $('lbList').innerHTML = LEADERS.map((l, i) => `<li><span class="pl">${i+1}</span><span>${l[0]}</span><span class="pt">${l[1] + add}</span></li>`).join('')
       + '<li class="gap" aria-hidden="true"><span></span><span>…</span><span></span></li>'
       + `<li class="me"><span class="pl">${me.toLocaleString('uk-UA')}</span><span>Ви</span><span class="pt">${s.points}</span></li>`;
     const need = TOP100 - s.points;
@@ -520,6 +515,8 @@ tr.ext td{color:var(--muted);font-size:13px}
     $('k-return').textContent = s.returns;
     $('d-pick').textContent = new Set([...s.f.A.pick, ...s.f.B.pick]).size;
     $('d-click').textContent = new Set([...s.f.A.click, ...s.f.B.click]).size;
+    // Нижня смуга на телефоні з'являється після першого прогнозу, щоб не закривати кнопки вибору.
+    $('dock').classList.toggle('hidden', $('d-pick').textContent === '0');
   }
   function renderAll(){
     renderMe(); renderMatch(); renderPicks(); renderCrowd(); renderOffer(); renderBoard(); renderPanel();
@@ -629,9 +626,9 @@ tr.ext td{color:var(--muted);font-size:13px}
     log(s.remind ? 'reminder_on' : 'reminder_off', `${roundKey()}, лише результат, без пропозицій партнера`);
   });
   $('variant').addEventListener('change', e => {
-    const from = s.variant, to = e.target.value, key = roundKey();
-    Object.keys(s.f[from]).forEach(step => { if (s.f[from][step].delete(key)) s.f[to][step].add(key); });
-    s.variant = to; log('setting', `варіант ${to}: читач у ${key} переходить з ${from} у ${to}`);
+    const from = s.variant, to = e.target.value;
+    s.variant = to; mark('view'); if (anyPick()) mark('pick');
+    log('setting', `варіант ${to}: зроблене у ${from} лишається у ${from}, далі рахується у ${to}`);
     renderOffer(); renderPanel();
   });
   function weekHint(){
